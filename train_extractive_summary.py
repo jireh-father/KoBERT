@@ -340,6 +340,7 @@ def train(args):
     for epoch in range(args.num_epochs):
 
         if args.train:
+            print("Epoch %d/%d, LR: %f" % (epoch, args.num_epochs, np.array(scheduler.get_lr()).mean()))
             epoch_start_time = time.time()
             model.train()
             epoch_labels = []
