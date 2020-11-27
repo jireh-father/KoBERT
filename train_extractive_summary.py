@@ -256,6 +256,8 @@ def train(args):
     media_map = {m: i for i, m in enumerate(medias)}
     print("medias", media_map)
 
+    os.makedirs(os.path.join(args.work_dir, "saved_models"), exist_ok=True)
+
     train_samples = []
     val_samples = []
     class_cnt = []
