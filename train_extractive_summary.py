@@ -208,6 +208,8 @@ class ExtractiveModel(nn.Module):
         # model, vocab = get_pytorch_kobert_model()
         #
         input_mask = (input_ids != 0).type(torch.long)
+        print(input_ids.shape)
+        print(input_mask.shape)
         sequence_output, pooled_output = self.bert(input_ids, input_mask)
         if self.use_bert_sum_words:
             sentence_embed = torch.sum(sequence_output, dim=1)
