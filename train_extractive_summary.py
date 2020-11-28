@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import itertools
 
 
-def freeze_params(model: nn.Module):
+def freeze_params(model):
     """Set requires_grad=False for each of model.parameters()"""
     for par in model.parameters():
         par.requires_grad = False
@@ -299,6 +299,8 @@ def train(args):
     print("val samples", len(val_samples))
 
     bert_model, vocab = get_pytorch_kobert_model()
+    if args.freeze_bert:
+        freeze_params(bert_model)
 
     train_dataset = SentenceDataset(train_samples, vocab, media_map, word_dropout_prob=args.word_dropout_prob,
                                     max_word_dropout_ratio=args.max_word_dropout_ratio,
@@ -545,6 +547,8 @@ if __name__ == '__main__':
     parser.add_argument('--val_pin_memory', default=False, action="store_true")
     parser.add_argument('--use_benchmark', default=False, action="store_true")
     parser.add_argument('--nesterov', default=False, action="store_true")
+    parser.add_argument('--freeze_bert', default=False, action="store_true")
+
 
     args = parser.parse_args()
 
