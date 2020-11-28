@@ -10,6 +10,7 @@ from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.schedulers import HyperBandScheduler
 import ht_train_extractive_summary as trainer_util
+import ray
 
 
 def main(args=None):
@@ -28,6 +29,7 @@ def main(args=None):
         "use_media": tune.choice([True, False]),  # tune.grid_search([True, False]),
         "simple_model": tune.choice([False, True]),  # tune.grid_search([True, False])
     }
+    ray.init(num_cpus=args.num_workers, num_gpus=args.gpus_per_trial)
     scheduler = HyperBandScheduler(
         time_attr="training_iteration",
         metric="precision",
@@ -39,7 +41,7 @@ def main(args=None):
     result = tune.run(
         partial(trainer_util.train, args=args),
         name='hyperband_test',
-        resources_per_trial={"cpu": args.num_workers, "gpu": args.gpus_per_trial},
+        # resources_per_trial={"cpu": args.num_workers, "gpu": args.gpus_per_trial},
         config=config,
         stop={"training_iteration": 1},
         num_samples=args.num_tune_samples,
