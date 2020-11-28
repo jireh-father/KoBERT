@@ -23,6 +23,12 @@ import matplotlib.pyplot as plt
 import itertools
 
 
+def freeze_params(model: nn.Module):
+    """Set requires_grad=False for each of model.parameters()"""
+    for par in model.parameters():
+        par.requires_grad = False
+
+
 def init_optimizer(optimizer_name, model, lr, wd, lr_restart_step=1, lr_decay_gamma=0.9,
                    scheduler="step", nesterov=False, num_epochs=None, steps_per_epoch=None):
     if optimizer_name == "sgd":
@@ -136,7 +142,7 @@ class SentenceDataset(data.Dataset):
         self.media_map = media_map
         self.word_dropout_prob = word_dropout_prob
         self.max_word_dropout_ratio = max_word_dropout_ratio
-        self.max_token_cnt=max_token_cnt
+        self.max_token_cnt = max_token_cnt
         # self.classes = classes
         # self.class_to_idx = class_to_idx
 
@@ -180,7 +186,7 @@ def save_model(model, model_path):
     if hasattr(model, 'module'):
         model = model.module
     print("save model", model_path)
-    torch.save(model, model_path)
+    torch.save(model.state_dict(), model_path)
 
 
 class ExtractiveModel(nn.Module):
@@ -248,9 +254,15 @@ def train(args):
             extractive = line['extractive']
             for i, sentence in enumerate(line['article_original']):
                 if i in extractive:
-                    label = extractive.index(i)
+                    if args.use_multi_class:
+                        label = extractive.index(i)
+                    else:
+                        label = 0
                 else:
-                    label = 3
+                    if args.use_multi_class:
+                        label = 3
+                    else:
+                        label = 1
                 if label not in samples_dict:
                     samples_dict[label] = []
                 samples_dict[label].append([sentence.replace('\n', '').strip(), label, i, media])
@@ -289,7 +301,8 @@ def train(args):
     bert_model, vocab = get_pytorch_kobert_model()
 
     train_dataset = SentenceDataset(train_samples, vocab, media_map, word_dropout_prob=args.word_dropout_prob,
-                                    max_word_dropout_ratio=args.max_word_dropout_ratio, max_token_cnt=args.max_token_cnt)
+                                    max_word_dropout_ratio=args.max_word_dropout_ratio,
+                                    max_token_cnt=args.max_token_cnt)
     val_dataset = SentenceDataset(val_samples, vocab, media_map, max_token_cnt=args.max_token_cnt)
 
     weights = 1. / torch.tensor(class_cnt, dtype=torch.float)
@@ -521,6 +534,8 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('-t', '--train', default=False, action="store_true")
     parser.add_argument('-v', '--val', default=False, action="store_true")
+
+    parser.add_argument('--use_multi_class', default=False, action="store_true")
 
     parser.add_argument('--use_all_train', default=False, action="store_true")
     parser.add_argument('--train_val_data', default=False, action="store_true")
