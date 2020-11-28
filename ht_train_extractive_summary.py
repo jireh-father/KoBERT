@@ -1,18 +1,12 @@
-import os
 import argparse
 import random
-import numpy as np
-import torch
 from kobert.pytorch_kobert import get_pytorch_kobert_model
 import jsonlines
 from torch.utils import data
 from gluonnlp.data import SentencepieceTokenizer
 from kobert.utils import get_tokenizer
-from torch import nn
 from torch.nn.utils.rnn import pad_sequence
-import torch.optim as optim
 from torch.optim import lr_scheduler
-import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 import datetime
 import time
@@ -28,7 +22,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import random_split
 from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
