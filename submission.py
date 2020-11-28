@@ -78,7 +78,7 @@ def submit(args):
     model = ExtractiveModel(bert_model, 100, 11, 768,
                             use_bert_sum_words=args.use_bert_sum_words,
                             use_pos=args.use_pos,
-                            use_media=args.use_media, num_classes=2, simple_model=args.simple_model,
+                            use_media=args.use_media, num_classes=4, simple_model=args.simple_model,
                             dim_feedforward=args.dim_feedforward,
                             dropout=args.dropout)
 
@@ -93,12 +93,13 @@ def submit(args):
     ids = []
     summaries = []
     for step, (token_ids_batch, pos_idx_batch, media_batch) in enumerate(test_loader):
-        if step % 50 == 0:
+        if step % 10 == 0:
             print(step, len(test_loader))
         token_ids_batch = token_ids_batch[0].to(device)
         pos_idx_batch = pos_idx_batch[0].to(device)
         media_batch = media_batch[0].to(device)
         sentences, _, id = test_dataset.samples[step]
+        ids.append(id)
         sentences = np.array(sentences)
         with torch.set_grad_enabled(False):
             outputs = model(token_ids_batch, pos_idx_batch, media_batch)
