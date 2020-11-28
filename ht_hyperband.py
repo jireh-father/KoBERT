@@ -15,8 +15,8 @@ import ht_train_extractive_summary as trainer_util
 def main(args=None):
     config = {
         "optimizer": tune.choice(['adam', 'sgd']),  # tune.grid_search(['adam', 'sgd']),
-        "lr": tune.qloguniform(1e-4, 1e-1, 5e-4),  # tune.loguniform(1e-4, 1e-1),
-        "weight_decay": tune.qloguniform(1e-6, 1e-3, 5e-6),
+        "lr": tune.loguniform(1e-4, 1e-1),  # tune.loguniform(1e-4, 1e-1),
+        "weight_decay": tune.loguniform(1e-6, 1e-3),
         "scheduler": tune.choice(['step', 'cosine']),  # tune.grid_search(['cosine', 'step']),
         "max_word_dropout_ratio": tune.quniform(0.1, 0.5, 0.05),  # tune.choice([0.1, 0.2, 0.3]),
         "word_dropout_prob": tune.quniform([0.0, 1.0, 0.1]),
