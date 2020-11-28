@@ -5,18 +5,14 @@ import jsonlines
 from torch.utils import data
 from gluonnlp.data import SentencepieceTokenizer
 from kobert.utils import get_tokenizer
-import datetime
 import time
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import classification_report
-from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
-import itertools
 import numpy as np
 import torch
 
 from torch.nn.utils.rnn import pad_sequence
 import os
 from model import ExtractiveModel
+import csv
 
 
 class SentenceDataset(data.Dataset):
@@ -36,10 +32,11 @@ class SentenceDataset(data.Dataset):
         with jsonlines.open(test_file) as f:
             for line in f.iter():
                 media = line['media']
+                id = line['id']
                 sentences = []
                 for i, sentence in enumerate(line['article_original']):
                     sentences.append(sentence.replace('\n', '').strip())
-                samples.append([sentences, media])
+                samples.append([sentences, media, id])
         self.samples = samples
 
     def __getitem__(self, index):
@@ -50,8 +47,7 @@ class SentenceDataset(data.Dataset):
         Returns:
             tuple: (sample, target) where target is class_index of the target class.
         """
-
-        sentences, media = self.samples[index]
+        sentences, media, id = self.samples[index]
         media = self.media_map[media]
 
         token_ids_batch = []
@@ -67,7 +63,7 @@ class SentenceDataset(data.Dataset):
         token_ids_batch = pad_sequence(token_ids_batch, batch_first=True, padding_value=0)
 
         return token_ids_batch, torch.tensor(pos_idx_batch, dtype=torch.long), \
-               torch.tensor(media_batch, dtype=torch.long), np.array(sentences)
+               torch.tensor(media_batch, dtype=torch.long)  # , np.array(sentences)
 
     def __len__(self):
         return len(self.samples)
@@ -77,9 +73,7 @@ def submit(args):
     bert_model, vocab = get_pytorch_kobert_model()
     test_dataset = SentenceDataset(args.test_file, vocab, max_token_cnt=args.max_token_cnt)
 
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.val_batch_size * 2,
-                                              num_workers=args.num_workers,
-                                              shuffle=False)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, num_workers=args.num_workers, shuffle=False)
 
     model = ExtractiveModel(bert_model, 100, 11, 768,
                             use_bert_sum_words=args.use_bert_sum_words,
@@ -93,92 +87,51 @@ def submit(args):
         model.load_state_dict(state_dict)
 
     model.eval()  # Set model to evaluate mode
-    epoch_start_time = time.time()
-    epoch_preds = []
-    epoch_labels = []
     device = 'cuda'
     model.to(device)
 
-    for step, (token_ids_batch, pos_idx_batch, media_batch, sen_batch) in enumerate(test_loader):
-        print(token_ids_batch.shape, pos_idx_batch.shape, media_batch.shape, sen_batch.shape)
-        token_ids_batch = token_ids_batch.to(device)
-        pos_idx_batch = pos_idx_batch.to(device)
-        media_batch = media_batch.to(device)
-        sys.exit()
-
+    ids = []
+    summaries = []
+    for step, (token_ids_batch, pos_idx_batch, media_batch) in enumerate(test_loader):
+        token_ids_batch = token_ids_batch[0].to(device)
+        pos_idx_batch = pos_idx_batch[0].to(device)
+        media_batch = media_batch[0].to(device)
+        sentences, _, id = test_dataset.samples[step]
+        sentences = np.array(sentences)
         with torch.set_grad_enabled(False):
             outputs = model(token_ids_batch, pos_idx_batch, media_batch)
-            # print("batch speed", time.time() - start)
-            torch.argsort(outputs[:, 0], dim=0)
-            _, preds = torch.max(outputs, 1)
-            epoch_preds += list(preds.cpu().numpy())
+            indices = torch.argsort(outputs[:, 0], dim=0)
+            sentences = sentences[indices[:3].cpu().numpy()]
+            summaries.append("\n".join(sentences))
 
-    current_datetime = datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')
-
-    epoch_acc = accuracy_score(epoch_labels, epoch_preds)
-    epoch_f1 = f1_score(epoch_labels, epoch_preds, average='macro')
-    epoch_elapsed = time.time() - epoch_start_time
-    print(
-        "[result_val,%s] epoch_elapsed: %s, acc: %f, f1: %f" % (
-            current_datetime, epoch_elapsed, epoch_acc, epoch_f1))
-
-    cls_report = classification_report(epoch_labels, epoch_preds)  # , target_names=classes)
-    print(cls_report)
-    epoch_cm = confusion_matrix(epoch_labels, epoch_preds)
-    print("confusion matrix")
-    print(epoch_cm)
-    # np.save(os.path.join(log_dir, "confusion_matrix_%s_epoch_%d.npy" % (val_name, epoch)), epoch_cm)
-    epoch_cm = epoch_cm.astype('float') / epoch_cm.sum(axis=1)[:, np.newaxis]
-    epoch_cm = epoch_cm.diagonal()
-    print("each accuracies")
-    print(epoch_cm)
-
-    return epoch_f1
+    os.makedirs(args.output_dir, exist_ok=True)
+    rows = zip(ids, summaries)
+    with open(os.path.join(args.output_dir, "submission.csv"), "w+") as f:
+        writer = csv.writer(f)
+        writer.writerow(["id", "summary"])
+        for row in rows:
+            writer.writerow(row)
+    print("done")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-
-    parser.add_argument('-l', '--work_dir', type=str, default='./log')
+    parser.add_argument('--output_dir', type=str, default='./', required=False, help='checkpoint path')
     parser.add_argument('-c', '--checkpoint_path', type=str, default=None, required=False, help='checkpoint path')
     parser.add_argument('--test_file',
                         default='/media/irelin/data_disk/dataset/dacon_summury/extractive/extractive_test_v2.jsonl',
                         type=str)
-    parser.add_argument('--val_ratio', type=float, default=0.1)
-    parser.add_argument('--lr_restart_step', type=int, default=1)
-    parser.add_argument('-e', '--num_epochs', type=int, default=100)
-    parser.add_argument('--log_step_interval', type=int, default=100)
-
-    parser.add_argument('--train_batch_size', type=int, default=32)
-    parser.add_argument('--val_batch_size', type=int, default=64)
-    parser.add_argument('-w', '--num_workers', type=int, default=8)
 
     parser.add_argument('--max_token_cnt', type=int, default=300)
-
     parser.add_argument('--use_bert_sum_words', action='store_true', default=False)
     parser.add_argument('--use_media', action='store_true', default=False)
     parser.add_argument('--use_pos', action='store_true', default=False)
     parser.add_argument('--simple_model', action='store_true', default=False)
     parser.add_argument('--dim_feedforward', type=int, default=1024)
+
     parser.add_argument('--dropout', type=float, default=0.1)
-
-    parser.add_argument('--lr_decay_gamma', type=float, default=0.9)
-    # parser.add_argument('-d', '--weight_decay', type=float, default=1e-5)
+    parser.add_argument('--num_workers', type=int, default=8)
     parser.add_argument('--seed', type=int, default=1)
-    parser.add_argument('-t', '--train', default=False, action="store_true")
-    parser.add_argument('-v', '--val', default=False, action="store_true")
-
-    parser.add_argument('--use_all_train', default=False, action="store_true")
-    parser.add_argument('--train_val_data', default=False, action="store_true")
-    parser.add_argument('--data_parallel', default=False, action="store_true")
-
-    parser.add_argument('--train_pin_memory', default=False, action="store_true")
-    parser.add_argument('--val_pin_memory', default=False, action="store_true")
-    parser.add_argument('--use_benchmark', default=False, action="store_true")
-    parser.add_argument('--nesterov', default=False, action="store_true")
-    parser.add_argument('--gpus_per_trial', type=int, default=2)
-
-    parser.add_argument('--num_tune_samples', type=int, default=1)
 
     args = parser.parse_args()
 
@@ -192,8 +145,7 @@ if __name__ == '__main__':
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(args.seed)
 
-        if args.use_benchmark:
-            torch.backends.cudnn.benchmark = True
-            torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = True
 
     submit(args)
