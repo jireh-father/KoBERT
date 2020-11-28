@@ -29,7 +29,8 @@ def main(args=None):
         "use_media": tune.choice([True, False]),  # tune.grid_search([True, False]),
         "simple_model": tune.choice([False, True]),  # tune.grid_search([True, False])
     }
-    ray.init(num_cpus=args.cpus_per_trial, num_gpus=args.gpus_per_trial)
+
+    ray.init(num_cpus=args.cpus_per_trial * args.num_avail_gpus, num_gpus=args.num_avail_gpus)
     scheduler = HyperBandScheduler(
         time_attr="training_iteration",
         metric="precision",
@@ -41,7 +42,7 @@ def main(args=None):
     result = tune.run(
         partial(trainer_util.train, args=args),
         name='hyperband_test',
-        # resources_per_trial={"cpu": args.num_workers, "gpu": args.gpus_per_trial},
+        resources_per_trial={"cpu": args.cpus_per_trial, "gpu": args.gpus_per_trial},
         config=config,
         stop={"training_iteration": 1},
         num_samples=args.num_tune_samples,
@@ -112,6 +113,7 @@ if __name__ == '__main__':
     parser.add_argument('--nesterov', default=False, action="store_true")
     parser.add_argument('--gpus_per_trial', type=int, default=2)
     parser.add_argument('--cpus_per_trial', type=int, default=8)
+    parser.add_argument('--num_avail_gpus', type=int, default=8)
 
     parser.add_argument('--num_tune_samples', type=int, default=1)
 
