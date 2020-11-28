@@ -626,9 +626,9 @@ def test_accuracy(model, use_multi_class, device):
 
 def main(args=None):
     config = {
-        "optimizer": tune.grid_search(['adam', 'sgd']),
-        "lr": tune.loguniform(1e-4, 1e-1),
-        "scheduler": tune.grid_search(['cosine', 'step']),
+        "optimizer": 'adam',# tune.grid_search(['adam', 'sgd']),
+        "lr": 0.001,#tune.loguniform(1e-4, 1e-1),
+        "scheduler": 'step',#tune.grid_search(['cosine', 'step']),
         "max_word_dropout_ratio": 0.0,
         "word_dropout_prob": 0.0,
         "label_smoothing": tune.grid_search([0.1, 0.0]),
