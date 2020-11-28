@@ -29,7 +29,7 @@ def main(args=None):
         "use_media": tune.choice([True, False]),  # tune.grid_search([True, False]),
         "simple_model": tune.choice([False, True]),  # tune.grid_search([True, False])
     }
-    ray.init(num_cpus=args.num_workers, num_gpus=args.gpus_per_trial)
+    ray.init(num_cpus=args.cpus_per_trial, num_gpus=args.gpus_per_trial)
     scheduler = HyperBandScheduler(
         time_attr="training_iteration",
         metric="precision",
@@ -111,6 +111,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_benchmark', default=False, action="store_true")
     parser.add_argument('--nesterov', default=False, action="store_true")
     parser.add_argument('--gpus_per_trial', type=int, default=2)
+    parser.add_argument('--cpus_per_trial', type=int, default=8)
 
     parser.add_argument('--num_tune_samples', type=int, default=1)
 
