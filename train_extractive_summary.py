@@ -29,6 +29,12 @@ def freeze_params(model):
         par.requires_grad = False
 
 
+def non_freeze_params(model):
+    """Set requires_grad=False for each of model.parameters()"""
+    for par in model.parameters():
+        par.requires_grad = False
+
+
 def init_optimizer(optimizer_name, model, lr, wd, lr_restart_step=1, lr_decay_gamma=0.9,
                    scheduler="step", nesterov=False, num_epochs=None, steps_per_epoch=None):
     if optimizer_name == "sgd":
@@ -301,8 +307,13 @@ def train(args):
 
     bert_model, vocab = get_pytorch_kobert_model()
     if args.freeze_bert:
-        freeze_params(bert_model)
-
+        freeze_params(bert_model.embeddings)
+        freeze_params(bert_model.encoder)
+        freeze_params(bert_model.pooler)
+    else:
+        non_freeze_params(bert_model.embeddings)
+        non_freeze_params(bert_model.encoder)
+        non_freeze_params(bert_model.pooler)
     train_dataset = SentenceDataset(train_samples, vocab, media_map, word_dropout_prob=args.word_dropout_prob,
                                     max_word_dropout_ratio=args.max_word_dropout_ratio,
                                     max_token_cnt=args.max_token_cnt)
@@ -383,17 +394,18 @@ def train(args):
 
                 # forward
                 # track history if only in train
-                with torch.set_grad_enabled(True):
-                    outputs = model(token_ids_batch, pos_idx_batch, media_batch)
-                    loss = criterion(outputs, labels)
+                with torch.autograd.set_detect_anomaly(True):
+                    with torch.set_grad_enabled(True):
+                        outputs = model(token_ids_batch, pos_idx_batch, media_batch)
+                        loss = criterion(outputs, labels)
 
-                    _, preds = torch.max(outputs, 1)
-                    epoch_preds += list(preds.cpu().numpy())
+                        _, preds = torch.max(outputs, 1)
+                        epoch_preds += list(preds.cpu().numpy())
 
-                    # backward + optimize only if in training phase
-                    loss.backward()
-                    optimizer.step()
-                    epoch_loss += loss.item() * token_ids_batch.size(0)
+                        # backward + optimize only if in training phase
+                        loss.backward()
+                        optimizer.step()
+                        epoch_loss += loss.item() * token_ids_batch.size(0)
 
                 batch_elapsed_time = time.time() - batch_start_time
                 if step >= 0 and (step + 1) % args.log_step_interval == 0:
@@ -513,12 +525,12 @@ if __name__ == '__main__':
                         type=str)
     parser.add_argument('--val_ratio', type=float, default=0.1)
     parser.add_argument('-z', '--optimizer', type=str, default='adam')  # adam')
-    parser.add_argument('--scheduler', type=str, default='cycle')  # cosine, step')
+    parser.add_argument('--scheduler', type=str, default='cosine')  # cosine, step')
     parser.add_argument('--lr_restart_step', type=int, default=1)
     parser.add_argument('-e', '--num_epochs', type=int, default=100)
     parser.add_argument('--log_step_interval', type=int, default=100)
 
-    parser.add_argument('--train_batch_size', type=int, default=32)
+    parser.add_argument('--train_batch_size', type=int, default=1)
     parser.add_argument('--val_batch_size', type=int, default=64)
     parser.add_argument('-w', '--num_workers', type=int, default=8)
 
@@ -526,7 +538,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--use_bert_sum_words', action='store_true', default=False)
     parser.add_argument('--use_media', action='store_true', default=False)
-    parser.add_argument('--use_pos', action='store_true', default=False)
+    parser.add_argument('--use_pos', action='store_true', default=True)
 
     parser.add_argument('--word_dropout_prob', type=float, default=0.0)
     parser.add_argument('--max_word_dropout_ratio', type=float, default=0.0)
@@ -535,7 +547,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--weight_decay', type=float, default=1e-5)
     parser.add_argument('--label_smoothing', type=float, default=0.0)
     parser.add_argument('--seed', type=int, default=1)
-    parser.add_argument('-t', '--train', default=False, action="store_true")
+    parser.add_argument('-t', '--train', default=True, action="store_true")
     parser.add_argument('-v', '--val', default=False, action="store_true")
 
     parser.add_argument('--use_multi_class', default=False, action="store_true")

@@ -40,6 +40,12 @@ def freeze_params(model):
         par.requires_grad = False
 
 
+def non_freeze_params(model):
+    """Set requires_grad=False for each of model.parameters()"""
+    for par in model.parameters():
+        par.requires_grad = False
+
+
 def init_optimizer(optimizer_name, model, lr, wd, lr_restart_step=1, lr_decay_gamma=0.9,
                    scheduler="step", nesterov=False, num_epochs=None, steps_per_epoch=None):
     if optimizer_name == "sgd":
@@ -312,7 +318,13 @@ def train(config, args):
 
     bert_model, vocab = get_pytorch_kobert_model()
     if config['freeze_bert']:
-        freeze_params(bert_model)
+        freeze_params(bert_model.embeddings)
+        freeze_params(bert_model.encoder)
+        freeze_params(bert_model.pooler)
+    else:
+        non_freeze_params(bert_model.embeddings)
+        non_freeze_params(bert_model.encoder)
+        non_freeze_params(bert_model.pooler)
 
     train_dataset = SentenceDataset(train_samples, vocab, media_map, word_dropout_prob=config['word_dropout_prob'],
                                     max_word_dropout_ratio=config['max_word_dropout_ratio'],
@@ -626,13 +638,13 @@ def test_accuracy(model, use_multi_class, device):
 
 def main(args=None):
     config = {
-        "optimizer": 'adam',# tune.grid_search(['adam', 'sgd']),
-        "lr": 0.001,#tune.loguniform(1e-4, 1e-1),
-        "scheduler": 'step',#tune.grid_search(['cosine', 'step']),
+        "optimizer": 'adam',  # tune.grid_search(['adam', 'sgd']),
+        "lr": 0.001,  # tune.loguniform(1e-4, 1e-1),
+        "scheduler": 'step',  # tune.grid_search(['cosine', 'step']),
         "max_word_dropout_ratio": 0.0,
         "word_dropout_prob": 0.0,
         "label_smoothing": tune.grid_search([0.1, 0.0]),
-        "use_multi_class": tune.grid_search([True, False]),
+        "use_multi_class": False,  # tune.grid_search([True, False]),
         "freeze_bert": tune.grid_search([True, False]),
         "use_bert_sum_words": tune.grid_search([True, False]),
         "use_pos": tune.grid_search([True, False]),
@@ -652,7 +664,7 @@ def main(args=None):
         partial(train, args=args),
         resources_per_trial={"cpu": args.num_workers, "gpu": args.gpus_per_trial},
         config=config,
-        num_samples=510680,
+        num_samples=args.num_tune_samples,
         scheduler=scheduler,
         progress_reporter=reporter,
         local_dir=args.work_dir)
@@ -718,6 +730,8 @@ if __name__ == '__main__':
     parser.add_argument('--use_benchmark', default=False, action="store_true")
     parser.add_argument('--nesterov', default=False, action="store_true")
     parser.add_argument('--gpus_per_trial', type=int, default=2)
+
+    parser.add_argument('--num_tune_samples', type=int, default=1)
 
     args = parser.parse_args()
 
