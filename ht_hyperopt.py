@@ -31,7 +31,9 @@ def main(args=None):
             "use_pos": 0,  # True,  # tune.grid_search([True, False]),
             "use_media": 0,  # tune.grid_search([True, False]),
             "simple_model": 0,  # tune.grid_search([True, False])
-            "max_token_cnt": 3
+            "max_token_cnt": 3,
+            "dim_feedforward": 2,
+            "dropout": 1,
         },
         {
             "optimizer": 0,  # tune.grid_search(['adam', 'sgd']),
@@ -46,7 +48,9 @@ def main(args=None):
             "use_pos": 0,  # True,  # tune.grid_search([True, False]),
             "use_media": 0,  # tune.grid_search([True, False]),
             "simple_model": 0,  # tune.grid_search([True, False])
-            "max_token_cnt": 3
+            "max_token_cnt": 3,
+            "dim_feedforward": 2,
+            "dropout": 1,
         },
         {
             "optimizer": 0,  # tune.grid_search(['adam', 'sgd']),
@@ -61,28 +65,15 @@ def main(args=None):
             "use_pos": 0,  # True,  # tune.grid_search([True, False]),
             "use_media": 0,  # tune.grid_search([True, False]),
             "simple_model": 0,  # tune.grid_search([True, False])
-            "max_token_cnt": 1
+            "max_token_cnt": 1,
+            "dim_feedforward": 2,
+            "dropout": 1,
         }
     ]
 
     tune_kwargs = {
         "num_samples": args.num_tune_samples,
-        "config": {
-            "optimizer": tune.choice(['adam', 'sgd']),  # tune.grid_search(['adam', 'sgd']),
-            "lr": tune.loguniform(1e-4, 1e-1),  # tune.loguniform(1e-4, 1e-1),
-            "weight_decay": tune.loguniform(1e-6, 1e-3),
-            "scheduler": tune.choice(['step', 'cosine']),  # tune.grid_search(['cosine', 'step']),
-            "max_word_dropout_ratio": tune.quniform(0.1, 0.5, 0.05),  # tune.choice([0.1, 0.2, 0.3]),
-            "word_dropout_prob": tune.quniform(0.0, 1.0, 0.1),
-            "label_smoothing": tune.choice([0.1, 0.0]),  # tune.grid_search([0.1, 0.0]),
-            "use_multi_class": False,  # tune.grid_search([True, False]),
-            "freeze_bert": tune.choice([False, True]),
-            "use_bert_sum_words": tune.choice([True, False]),  # tune.grid_search([True, False]),
-            "use_pos": tune.choice([True, False]),  # True,  # tune.grid_search([True, False]),
-            "use_media": tune.choice([True, False]),  # tune.grid_search([True, False]),
-            "simple_model": tune.choice([False, True]),  # tune.grid_search([True, False]),
-            "max_token_cnt": tune.choice([200, 300, 400, 500]),
-        }
+        "config": trainer_util.default_config
     }
 
     algo = HyperOptSearch(points_to_evaluate=current_best_params)
@@ -113,11 +104,16 @@ def main(args=None):
     print("Best trial final validation neg_acc: {}".format(best_trial.last_result["neg_acc"]))
 
     bert_model, vocab = get_pytorch_kobert_model()
+
+    num_classes = 4 if best_trial.config["use_multi_class"] else 2
     best_trained_model = trainer_util.ExtractiveModel(bert_model, 100, 11, 768,
                                                       use_bert_sum_words=best_trial.config["use_bert_sum_words"],
                                                       use_pos=best_trial.config["use_pos"],
                                                       use_media=best_trial.config['use_media'],
-                                                      simple_model=best_trial.config['simple_model'])
+                                                      simple_model=best_trial.config['simple_model'],
+                                                      num_classes=num_classes,
+                                                      dim_feedforward=best_trial.config['dim_feedforward'],
+                                                      dropout=best_trial.config['dropout'])
 
     if torch.cuda.is_available():
         device = "cuda:0"

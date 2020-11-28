@@ -18,6 +18,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import ht_train_extractive_summary as trainer
 
 
 class SentenceDataset(data.Dataset):
@@ -52,103 +53,53 @@ class SentenceDataset(data.Dataset):
             tuple: (sample, target) where target is class_index of the target class.
         """
 
-        sentence, target, pos_idx, media = self.samples[index]
+        sentences, media = self.samples[index]
         media = self.media_map[media]
-        tokens = self.tokenizer(sentence)
-        token_ids = self.vocab.to_indices(tokens)
-        if random.random() < self.word_dropout_prob:
-            dropout_cnt = round(self.max_word_dropout_ratio * len(token_ids))
-            for i in range(dropout_cnt):
-                dropout_idx = random.randint(0, len(token_ids) - 1)
-                del token_ids[dropout_idx]
 
-        if len(token_ids) > self.max_token_cnt:
-            token_ids = token_ids[:self.max_token_cnt]
+        token_ids_batch = []
+        pos_idx_batch = list(range(len(sentences)))
+        media_batch = [media] * len(sentences)
+        for sen in sentences:
+            tokens = self.tokenizer(sen)
+            token_ids = self.vocab.to_indices(tokens)
+            if len(token_ids) > self.max_token_cnt:
+                token_ids = token_ids[:self.max_token_cnt]
+            token_ids_batch.append(token_ids)
 
-        return torch.tensor(token_ids, dtype=torch.long), target, pos_idx, media
+        return torch.tensor(token_ids_batch, dtype=torch.long), torch.tensor(pos_idx_batch, dtype=torch.long), \
+               torch.tensor(media_batch, dtype=torch.long), np.array(sentences)
 
     def __len__(self):
         return len(self.samples)
 
 
-def test_accuracy(model, use_multi_class, max_token_cnt, device):
-    samples_dict = {}
-    medias = set()
-    with jsonlines.open(train_file) as f:
-        for line in f.iter():
-            media = line['media']
-            medias.add(media)
+def submit(args):
+    bert_model, vocab = get_pytorch_kobert_model()
+    test_dataset = SentenceDataset(args.test_file, vocab, max_token_cnt=args.max_token_cnt)
 
-    medias = list(medias)
-    medias.sort()
-    media_map = {m: i for i, m in enumerate(medias)}
-    print("medias", media_map)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.val_batch_size * 2,
+                                              num_workers=args.num_workers,
+                                              shuffle=False)
 
-    samples_dict = {}
-    medias = set()
-    with jsonlines.open(args.train_file) as f:
-        for line in f.iter():
-            media = line['media']
-            medias.add(media)
-            extractive = line['extractive']
-            for i, sentence in enumerate(line['article_original']):
-                if i in extractive:
-                    if use_multi_class:
-                        label = extractive.index(i)
-                    else:
-                        label = 0
-                else:
-                    if use_multi_class:
-                        label = 3
-                    else:
-                        label = 1
-                if label not in samples_dict:
-                    samples_dict[label] = []
-                samples_dict[label].append([sentence.replace('\n', '').strip(), label, i, media])
+    model = trainer.ExtractiveModel(bert_model, 100, 11, 768, use_bert_sum_words=args.use_bert_sum_words,
+                                    use_pos=args.use_pos,
+                                    use_media=args.use_media, num_classes=2, simple_model=args.simple_model)
 
-    medias = list(medias)
-    medias.sort()
-    media_map = {m: i for i, m in enumerate(medias)}
-    print("medias", media_map)
+    model = trainer.ExtractiveModel(bert_model, 100, 11, 768, use_bert_sum_words=config['use_bert_sum_words'],
+                                    use_pos=config['use_pos'],
+                                    use_media=config['use_media'],
+                                    simple_model=config['simple_model'])
 
-    train_samples = []
-    val_samples = []
-    class_cnt = []
-    num_classes = 4 if use_multi_class else 2
-    for label in range(num_classes):
-        random.shuffle(samples_dict[label])
-        val_cnt = round(len(samples_dict[label]) * args.val_ratio)
-        val_samples += samples_dict[label][:val_cnt]
-        tmp_train_samples = samples_dict[label][val_cnt:]
-        class_cnt.append(len(tmp_train_samples))
-        if args.use_all_train:
-            train_samples += samples_dict[label]
-        elif args.train_val_data:
-            train_samples += val_samples
-        else:
-            train_samples += tmp_train_samples
-
-    print('class_cnt', class_cnt)
-
-    random.shuffle(train_samples)
-    train_targets = [t[1] for t in train_samples]
-    print("total samples", len(train_samples) + len(val_samples))
-    print("train samples", len(train_samples))
-    print("val samples", len(val_samples))
-
-    _, vocab = get_pytorch_kobert_model()
-    val_dataset = SentenceDataset(val_samples, vocab, media_map, max_token_cnt=max_token_cnt)
-
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.val_batch_size * 2,
-                                             num_workers=args.num_workers,
-                                             shuffle=False, pin_memory=args.val_pin_memory, collate_fn=pad_collate)
+    if args.checkpoint_path is not None and os.path.isfile(args.checkpoint_path):
+        state_dict = torch.load(args.checkpoint_path)
+        model.load_state_dict(state_dict)
 
     model.eval()  # Set model to evaluate mode
     epoch_start_time = time.time()
     epoch_preds = []
     epoch_labels = []
 
-    for step, (token_ids_batch, labels, pos_idx_batch, media_batch) in enumerate(val_loader):
+    for step, (token_ids_batch, labels, pos_idx_batch, media_batch) in enumerate(test_loader):
         batch_start_time = time.time()
         epoch_labels += list(labels.numpy())
         token_ids_batch = token_ids_batch.to(device)
@@ -240,4 +191,4 @@ if __name__ == '__main__':
             torch.backends.cudnn.benchmark = True
             torch.backends.cudnn.deterministic = True
 
-    main(args)
+    submit(args)
