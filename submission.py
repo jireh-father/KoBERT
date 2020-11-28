@@ -83,9 +83,7 @@ def submit(args):
                             dropout=args.dropout)
 
     if args.checkpoint_path is not None and os.path.isfile(args.checkpoint_path):
-        state_dict = torch.load(args.checkpoint_path)
-        print(state_dict)
-        print(type(state_dict))
+        state_dict = torch.load(args.checkpoint_path)[0]
         model.load_state_dict(state_dict)
 
     model.eval()  # Set model to evaluate mode
