@@ -158,6 +158,9 @@ class SentenceDataset(data.Dataset):
                 dropout_idx = random.randint(0, len(token_ids) - 1)
                 del token_ids[dropout_idx]
 
+        if len(token_ids) > 300:
+            token_ids = token_ids[:300]
+
         return torch.tensor(token_ids, dtype=torch.long), target, pos_idx, media
 
     def __len__(self):
