@@ -31,7 +31,7 @@ def main(args=None):
             "use_pos": 0,  # True,  # tune.grid_search([True, False]),
             "use_media": 0,  # tune.grid_search([True, False]),
             "simple_model": 0,  # tune.grid_search([True, False])
-            "max_token_cnt": 500
+            "max_token_cnt": 3
         },
         {
             "optimizer": 0,  # tune.grid_search(['adam', 'sgd']),
@@ -46,7 +46,7 @@ def main(args=None):
             "use_pos": 0,  # True,  # tune.grid_search([True, False]),
             "use_media": 0,  # tune.grid_search([True, False]),
             "simple_model": 0,  # tune.grid_search([True, False])
-            "max_token_cnt": 500
+            "max_token_cnt": 3
         },
         {
             "optimizer": 0,  # tune.grid_search(['adam', 'sgd']),
@@ -61,7 +61,7 @@ def main(args=None):
             "use_pos": 0,  # True,  # tune.grid_search([True, False]),
             "use_media": 0,  # tune.grid_search([True, False]),
             "simple_model": 0,  # tune.grid_search([True, False])
-            "max_token_cnt": 300
+            "max_token_cnt": 1
         }
     ]
 
@@ -81,7 +81,7 @@ def main(args=None):
             "use_pos": tune.choice([True, False]),  # True,  # tune.grid_search([True, False]),
             "use_media": tune.choice([True, False]),  # tune.grid_search([True, False]),
             "simple_model": tune.choice([False, True]),  # tune.grid_search([True, False]),
-            "max_token_cnt": tune.qrandint(200, 600, 100),
+            "max_token_cnt": tune.choice([200, 300, 400, 500, 600]),
         }
     }
 
