@@ -19,49 +19,46 @@ from ray.tune.suggest.hyperopt import HyperOptSearch
 def main(args=None):
     current_best_params = [
         {
-            "optimizer": "adam",  # tune.grid_search(['adam', 'sgd']),
+            "optimizer": 0,  # tune.grid_search(['adam', 'sgd']),
             "lr": 0.001,  # tune.loguniform(1e-4, 1e-1),
             "weight_decay": 1e-5,
-            "scheduler": 'cosine',  # tune.grid_search(['cosine', 'step']),
+            "scheduler": 1,  # tune.grid_search(['cosine', 'step']),
             "max_word_dropout_ratio": 0.2,  # tune.choice([0.1, 0.2, 0.3]),
             "word_dropout_prob": 0.2,
             "label_smoothing": 0.1,  # tune.grid_search([0.1, 0.0]),
-            "use_multi_class": False,  # tune.grid_search([True, False]),
-            "freeze_bert": False,
-            "use_bert_sum_words": True,  # tune.grid_search([True, False]),
-            "use_pos": True,  # True,  # tune.grid_search([True, False]),
-            "use_media": True,  # tune.grid_search([True, False]),
-            "simple_model": False,  # tune.grid_search([True, False])
+            "freeze_bert": 0,
+            "use_bert_sum_words": 0,  # tune.grid_search([True, False]),
+            "use_pos": 0,  # True,  # tune.grid_search([True, False]),
+            "use_media": 0,  # tune.grid_search([True, False]),
+            "simple_model": 0,  # tune.grid_search([True, False])
         },
         {
-            "optimizer": "adam",  # tune.grid_search(['adam', 'sgd']),
+            "optimizer": 0,  # tune.grid_search(['adam', 'sgd']),
             "lr": 0.001,  # tune.loguniform(1e-4, 1e-1),
             "weight_decay": 1e-5,
-            "scheduler": 'cosine',  # tune.grid_search(['cosine', 'step']),
+            "scheduler": 1,  # tune.grid_search(['cosine', 'step']),
             "max_word_dropout_ratio": 0.0,  # tune.choice([0.1, 0.2, 0.3]),
             "word_dropout_prob": 0.0,
             "label_smoothing": 0.1,  # tune.grid_search([0.1, 0.0]),
-            "use_multi_class": False,  # tune.grid_search([True, False]),
-            "freeze_bert": False,
-            "use_bert_sum_words": True,  # tune.grid_search([True, False]),
-            "use_pos": True,  # True,  # tune.grid_search([True, False]),
-            "use_media": True,  # tune.grid_search([True, False]),
-            "simple_model": False,  # tune.grid_search([True, False])
+            "freeze_bert": 0,
+            "use_bert_sum_words": 0,  # tune.grid_search([True, False]),
+            "use_pos": 0,  # True,  # tune.grid_search([True, False]),
+            "use_media": 0,  # tune.grid_search([True, False]),
+            "simple_model": 0,  # tune.grid_search([True, False])
         },
         {
-            "optimizer": "adam",  # tune.grid_search(['adam', 'sgd']),
+            "optimizer": 0,  # tune.grid_search(['adam', 'sgd']),
             "lr": 0.001,  # tune.loguniform(1e-4, 1e-1),
             "weight_decay": 1e-5,
-            "scheduler": 'cosine',  # tune.grid_search(['cosine', 'step']),
+            "scheduler": 0,  # tune.grid_search(['cosine', 'step']),
             "max_word_dropout_ratio": 0.0,  # tune.choice([0.1, 0.2, 0.3]),
             "word_dropout_prob": 0.0,
             "label_smoothing": 0.1,  # tune.grid_search([0.1, 0.0]),
-            "use_multi_class": False,  # tune.grid_search([True, False]),
-            "freeze_bert": True,
-            "use_bert_sum_words": True,  # tune.grid_search([True, False]),
-            "use_pos": True,  # True,  # tune.grid_search([True, False]),
-            "use_media": True,  # tune.grid_search([True, False]),
-            "simple_model": False,  # tune.grid_search([True, False])
+            "freeze_bert": 1,
+            "use_bert_sum_words": 0,  # tune.grid_search([True, False]),
+            "use_pos": 0,  # True,  # tune.grid_search([True, False]),
+            "use_media": 0,  # tune.grid_search([True, False]),
+            "simple_model": 0,  # tune.grid_search([True, False])
         }
     ]
 
