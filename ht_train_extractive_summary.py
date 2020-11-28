@@ -265,12 +265,12 @@ def train(config, args):
             extractive = line['extractive']
             for i, sentence in enumerate(line['article_original']):
                 if i in extractive:
-                    if config.use_multi_class:
+                    if config['use_multi_class']:
                         label = extractive.index(i)
                     else:
                         label = 0
                 else:
-                    if config.use_multi_class:
+                    if config['use_multi_class']:
                         label = 3
                     else:
                         label = 1
@@ -288,7 +288,7 @@ def train(config, args):
     train_samples = []
     val_samples = []
     class_cnt = []
-    num_classes = 4 if config.use_multi_class else 2
+    num_classes = 4 if config['use_multi_class ']else 2
     for label in range(num_classes):
         random.shuffle(samples_dict[label])
         val_cnt = round(len(samples_dict[label]) * args.val_ratio)
@@ -311,11 +311,11 @@ def train(config, args):
     print("val samples", len(val_samples))
 
     bert_model, vocab = get_pytorch_kobert_model()
-    if config.freeze_bert:
+    if config['freeze_bert']:
         freeze_params(bert_model)
 
-    train_dataset = SentenceDataset(train_samples, vocab, media_map, word_dropout_prob=config.word_dropout_prob,
-                                    max_word_dropout_ratio=config.max_word_dropout_ratio,
+    train_dataset = SentenceDataset(train_samples, vocab, media_map, word_dropout_prob=config['word_dropout_prob'],
+                                    max_word_dropout_ratio=config['max_word_dropout_ratio'],
                                     max_token_cnt=args.max_token_cnt)
     val_dataset = SentenceDataset(val_samples, vocab, media_map, max_token_cnt=args.max_token_cnt)
 
@@ -333,9 +333,9 @@ def train(config, args):
                                              num_workers=args.num_workers,
                                              shuffle=False, pin_memory=args.val_pin_memory, collate_fn=pad_collate)
 
-    model = ExtractiveModel(bert_model, 100, 11, 768, use_bert_sum_words=config.use_bert_sum_words,
-                            use_pos=config.use_pos,
-                            use_media=config.use_media)
+    model = ExtractiveModel(bert_model, 100, 11, 768, use_bert_sum_words=config['use_bert_sum_words'],
+                            use_pos=config['use_pos'],
+                            use_media=config['use_media'])
 
     if args.checkpoint_path is not None and os.path.isfile(args.checkpoint_path):
         state_dict = torch.load(args.checkpoint_path)
@@ -350,17 +350,17 @@ def train(config, args):
     steps_per_epoch = len(train_samples) // args.train_batch_size
     if len(train_samples) % args.train_batch_size > 0:
         steps_per_epoch += 1
-    optimizer, scheduler, use_lr_schedule_steps = init_optimizer(config.optimizer, model,
-                                                                 config.lr, args.weight_decay,
+    optimizer, scheduler, use_lr_schedule_steps = init_optimizer(config['optimizer'], model,
+                                                                 config['lr'], args.weight_decay,
                                                                  args.lr_restart_step,
                                                                  args.lr_decay_gamma,
-                                                                 config.scheduler,
+                                                                 config['scheduler'],
                                                                  nesterov=args.nesterov,
                                                                  num_epochs=args.num_epochs,
                                                                  steps_per_epoch=steps_per_epoch)
 
-    if config.label_smoothing > 0:
-        criterion = LabelSmoothingCrossEntropy(epsilon=config.label_smoothing)
+    if config['label_smoothing'] > 0:
+        criterion = LabelSmoothingCrossEntropy(epsilon=config['label_smoothing'])
     else:
         criterion = torch.nn.CrossEntropyLoss()
     criterion = criterion.to(device)
@@ -667,9 +667,9 @@ def main(args=None):
 
     bert_model, vocab = get_pytorch_kobert_model()
     best_trained_model = ExtractiveModel(bert_model, 100, 11, 768,
-                                         use_bert_sum_words=best_trial.config.use_bert_sum_words,
-                                         use_pos=best_trial.config.use_pos,
-                                         use_media=best_trial.config.use_media)
+                                         use_bert_sum_words=best_trial.config["use_bert_sum_words"],
+                                         use_pos=best_trial.config["use_pos"],
+                                         use_media=best_trial.config['use_media'])
 
     if torch.cuda.is_available():
         device = "cuda:0"
@@ -682,7 +682,7 @@ def main(args=None):
         best_checkpoint_dir, "checkpoint"))
     best_trained_model.load_state_dict(model_state)
 
-    test_acc = test_accuracy(best_trained_model, device)
+    test_acc = test_accuracy(best_trained_model, best_trial.config["use_multi_class"], device)
     print("Best trial test set f1: {}".format(test_acc))
 
 
