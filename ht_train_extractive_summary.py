@@ -288,7 +288,7 @@ def train(config, args):
     train_samples = []
     val_samples = []
     class_cnt = []
-    num_classes = 4 if config['use_multi_class ']else 2
+    num_classes = 4 if config['use_multi_class '] else 2
     for label in range(num_classes):
         random.shuffle(samples_dict[label])
         val_cnt = round(len(samples_dict[label]) * args.val_ratio)
