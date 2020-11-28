@@ -655,8 +655,7 @@ def main(args=None):
         num_samples=510680,
         scheduler=scheduler,
         progress_reporter=reporter,
-        local_dir=args.work_dir,
-        server_port=6007)
+        local_dir=args.work_dir)
 
     best_trial = result.get_best_trial("f1", "max", "last")
     print("Best trial config: {}".format(best_trial.config))
