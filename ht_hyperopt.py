@@ -81,7 +81,7 @@ def main(args=None):
             "use_pos": tune.choice([True, False]),  # True,  # tune.grid_search([True, False]),
             "use_media": tune.choice([True, False]),  # tune.grid_search([True, False]),
             "simple_model": tune.choice([False, True]),  # tune.grid_search([True, False]),
-            "max_token_cnt": tune.choice([200, 300, 400, 500, 600]),
+            "max_token_cnt": tune.choice([200, 300, 400, 500]),
         }
     }
 
