@@ -277,7 +277,8 @@ def train(args):
     train_samples = []
     val_samples = []
     class_cnt = []
-    for label in range(4):
+    num_classes = 4 if args.use_multi_class else 2
+    for label in range(num_classes):
         random.shuffle(samples_dict[label])
         val_cnt = round(len(samples_dict[label]) * args.val_ratio)
         val_samples += samples_dict[label][:val_cnt]
@@ -548,7 +549,6 @@ if __name__ == '__main__':
     parser.add_argument('--use_benchmark', default=False, action="store_true")
     parser.add_argument('--nesterov', default=False, action="store_true")
     parser.add_argument('--freeze_bert', default=False, action="store_true")
-
 
     args = parser.parse_args()
 
