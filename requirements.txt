@@ -8,3 +8,5 @@ tensorboard==1.14
 sklearn
 matplotlib
 future
+pandas
+ray[tune]
