@@ -127,7 +127,7 @@ class LabelSmoothingCrossEntropy(nn.Module):
 class SentenceDataset(data.Dataset):
     """__init__ and __len__ functions are the same as in TorchvisionDataset"""
 
-    def __init__(self, samples, vocab, media_map, word_dropout_prob=0.0, max_word_dropout_ratio=0.0, max_word_cnt=300):
+    def __init__(self, samples, vocab, media_map, word_dropout_prob=0.0, max_word_dropout_ratio=0.0, max_token_cnt=300):
         self.tokenizer = SentencepieceTokenizer(get_tokenizer())
         self.vocab = vocab
 
@@ -136,7 +136,7 @@ class SentenceDataset(data.Dataset):
         self.media_map = media_map
         self.word_dropout_prob = word_dropout_prob
         self.max_word_dropout_ratio = max_word_dropout_ratio
-        self.max_word_cnt=max_word_cnt
+        self.max_token_cnt=max_token_cnt
         # self.classes = classes
         # self.class_to_idx = class_to_idx
 
@@ -159,8 +159,8 @@ class SentenceDataset(data.Dataset):
                 dropout_idx = random.randint(0, len(token_ids) - 1)
                 del token_ids[dropout_idx]
 
-        if len(token_ids) > self.max_word_cnt:
-            token_ids = token_ids[:self.max_word_cnt]
+        if len(token_ids) > self.max_token_cnt:
+            token_ids = token_ids[:self.max_token_cnt]
 
         return torch.tensor(token_ids, dtype=torch.long), target, pos_idx, media
 
@@ -289,8 +289,8 @@ def train(args):
     bert_model, vocab = get_pytorch_kobert_model()
 
     train_dataset = SentenceDataset(train_samples, vocab, media_map, word_dropout_prob=args.word_dropout_prob,
-                                    max_word_dropout_ratio=args.max_word_dropout_ratio, max_word_cnt=args.max_word_cnt)
-    val_dataset = SentenceDataset(val_samples, vocab, media_map, max_word_cnt=args.max_word_cnt)
+                                    max_word_dropout_ratio=args.max_word_dropout_ratio, max_token_cnt=args.max_token_cnt)
+    val_dataset = SentenceDataset(val_samples, vocab, media_map, max_token_cnt=args.max_token_cnt)
 
     weights = 1. / torch.tensor(class_cnt, dtype=torch.float)
     print('weights', weights)
