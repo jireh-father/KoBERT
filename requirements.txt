@@ -4,7 +4,7 @@ sentencepiece >= 0.1.6
 transformers >= 2.1.1, == 3.0.2
 MXNet >= 1.4.0
 jsonlines
-tensorboard==1.14
+tensorboard==2.4.0
 sklearn
 matplotlib
 future
