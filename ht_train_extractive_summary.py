@@ -724,9 +724,9 @@ def main(args=None):
                                          simple_model=best_trial.config['simple_model'])
 
     if torch.cuda.is_available():
-        device = "cuda:0"
-        if args.gpus_per_trial > 1:
-            best_trained_model = nn.DataParallel(best_trained_model)
+        device = "cuda"
+        # if args.gpus_per_trial > 1:
+        #     best_trained_model = nn.DataParallel(best_trained_model)
     best_trained_model.to(device)
 
     best_checkpoint_dir = best_trial.checkpoint.value
