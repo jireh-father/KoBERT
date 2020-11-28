@@ -11,44 +11,96 @@ from ray.tune import CLIReporter
 from ray.tune.schedulers import HyperBandScheduler
 import ht_train_extractive_summary as trainer_util
 import ray
+from ray.tune.suggest import ConcurrencyLimiter
+from ray.tune.schedulers import AsyncHyperBandScheduler
+from ray.tune.suggest.hyperopt import HyperOptSearch
 
 
 def main(args=None):
-    config = {
-        "optimizer": tune.choice(['adam', 'sgd']),  # tune.grid_search(['adam', 'sgd']),
-        "lr": tune.loguniform(1e-4, 1e-1),  # tune.loguniform(1e-4, 1e-1),
-        "weight_decay": tune.loguniform(1e-6, 1e-3),
-        "scheduler": tune.choice(['step', 'cosine']),  # tune.grid_search(['cosine', 'step']),
-        "max_word_dropout_ratio": tune.quniform(0.1, 0.5, 0.05),  # tune.choice([0.1, 0.2, 0.3]),
-        "word_dropout_prob": tune.quniform(0.0, 1.0, 0.1),
-        "label_smoothing": tune.choice([0.1, 0.0]),  # tune.grid_search([0.1, 0.0]),
-        "use_multi_class": False,  # tune.grid_search([True, False]),
-        "freeze_bert": tune.choice([False, True]),
-        "use_bert_sum_words": tune.choice([True, False]),  # tune.grid_search([True, False]),
-        "use_pos": tune.choice([True, False]),  # True,  # tune.grid_search([True, False]),
-        "use_media": tune.choice([True, False]),  # tune.grid_search([True, False]),
-        "simple_model": tune.choice([False, True]),  # tune.grid_search([True, False])
+    current_best_params = [
+        {
+            "optimizer": "adam",  # tune.grid_search(['adam', 'sgd']),
+            "lr": 0.001,  # tune.loguniform(1e-4, 1e-1),
+            "weight_decay": 1e-5,
+            "scheduler": 'cosine',  # tune.grid_search(['cosine', 'step']),
+            "max_word_dropout_ratio": 0.2,  # tune.choice([0.1, 0.2, 0.3]),
+            "word_dropout_prob": 0.2,
+            "label_smoothing": 0.1,  # tune.grid_search([0.1, 0.0]),
+            "use_multi_class": False,  # tune.grid_search([True, False]),
+            "freeze_bert": False,
+            "use_bert_sum_words": True,  # tune.grid_search([True, False]),
+            "use_pos": True,  # True,  # tune.grid_search([True, False]),
+            "use_media": True,  # tune.grid_search([True, False]),
+            "simple_model": False,  # tune.grid_search([True, False])
+        },
+        {
+            "optimizer": "adam",  # tune.grid_search(['adam', 'sgd']),
+            "lr": 0.001,  # tune.loguniform(1e-4, 1e-1),
+            "weight_decay": 1e-5,
+            "scheduler": 'cosine',  # tune.grid_search(['cosine', 'step']),
+            "max_word_dropout_ratio": 0.0,  # tune.choice([0.1, 0.2, 0.3]),
+            "word_dropout_prob": 0.0,
+            "label_smoothing": 0.1,  # tune.grid_search([0.1, 0.0]),
+            "use_multi_class": False,  # tune.grid_search([True, False]),
+            "freeze_bert": False,
+            "use_bert_sum_words": True,  # tune.grid_search([True, False]),
+            "use_pos": True,  # True,  # tune.grid_search([True, False]),
+            "use_media": True,  # tune.grid_search([True, False]),
+            "simple_model": False,  # tune.grid_search([True, False])
+        },
+        {
+            "optimizer": "adam",  # tune.grid_search(['adam', 'sgd']),
+            "lr": 0.001,  # tune.loguniform(1e-4, 1e-1),
+            "weight_decay": 1e-5,
+            "scheduler": 'cosine',  # tune.grid_search(['cosine', 'step']),
+            "max_word_dropout_ratio": 0.0,  # tune.choice([0.1, 0.2, 0.3]),
+            "word_dropout_prob": 0.0,
+            "label_smoothing": 0.1,  # tune.grid_search([0.1, 0.0]),
+            "use_multi_class": False,  # tune.grid_search([True, False]),
+            "freeze_bert": True,
+            "use_bert_sum_words": True,  # tune.grid_search([True, False]),
+            "use_pos": True,  # True,  # tune.grid_search([True, False]),
+            "use_media": True,  # tune.grid_search([True, False]),
+            "simple_model": False,  # tune.grid_search([True, False])
+        }
+    ]
+
+    tune_kwargs = {
+        "num_samples": args.num_tune_samples,
+        "config": {
+            "optimizer": tune.choice(['adam', 'sgd']),  # tune.grid_search(['adam', 'sgd']),
+            "lr": tune.loguniform(1e-4, 1e-1),  # tune.loguniform(1e-4, 1e-1),
+            "weight_decay": tune.loguniform(1e-6, 1e-3),
+            "scheduler": tune.choice(['step', 'cosine']),  # tune.grid_search(['cosine', 'step']),
+            "max_word_dropout_ratio": tune.quniform(0.1, 0.5, 0.05),  # tune.choice([0.1, 0.2, 0.3]),
+            "word_dropout_prob": tune.quniform(0.0, 1.0, 0.1),
+            "label_smoothing": tune.choice([0.1, 0.0]),  # tune.grid_search([0.1, 0.0]),
+            "use_multi_class": False,  # tune.grid_search([True, False]),
+            "freeze_bert": tune.choice([False, True]),
+            "use_bert_sum_words": tune.choice([True, False]),  # tune.grid_search([True, False]),
+            "use_pos": tune.choice([True, False]),  # True,  # tune.grid_search([True, False]),
+            "use_media": tune.choice([True, False]),  # tune.grid_search([True, False]),
+            "simple_model": tune.choice([False, True]),  # tune.grid_search([True, False])
+        }
     }
 
-    ray.init(num_cpus=args.cpus_per_trial * args.num_avail_gpus, num_gpus=args.num_avail_gpus)
-    scheduler = HyperBandScheduler(
-        time_attr="training_iteration",
-        metric="precision",
-        mode="max",
-        max_t=1)
+    algo = HyperOptSearch(points_to_evaluate=current_best_params)
+    algo = ConcurrencyLimiter(algo, max_concurrent=args.num_avail_gpus)
+
+    scheduler = AsyncHyperBandScheduler()
     reporter = CLIReporter(
         # parameter_columns=["l1", "l2", "lr", "batch_size"],
         metric_columns=["loss", "f1", "training_iteration", 'acc', 'pos_acc', 'neg_acc', 'precision', 'recall'])
     result = tune.run(
         partial(trainer_util.train, args=args),
-        name='hyperband_test',
         resources_per_trial={"cpu": args.cpus_per_trial, "gpu": args.gpus_per_trial},
-        config=config,
-        stop={"training_iteration": 1},
-        num_samples=args.num_tune_samples,
         scheduler=scheduler,
+        search_alg=algo,
+        metric='precision',
+        mode='max',
         progress_reporter=reporter,
-        local_dir=args.work_dir)
+        local_dir=args.work_dir,
+        **tune_kwargs)
 
     best_trial = result.get_best_trial("precision", "max", "last")
     print("Best trial config: {}".format(best_trial.config))
@@ -67,9 +119,9 @@ def main(args=None):
                                                       simple_model=best_trial.config['simple_model'])
 
     if torch.cuda.is_available():
-        device = "cuda"
-        if args.gpus_per_trial > 1:
-            best_trained_model = nn.DataParallel(best_trained_model)
+        device = "cuda:0"
+        # if args.gpus_per_trial > 1:
+        #     best_trained_model = nn.DataParallel(best_trained_model)
     best_trained_model.to(device)
 
     best_checkpoint_dir = best_trial.checkpoint.value
