@@ -19,7 +19,7 @@ def main(args=None):
         "weight_decay": tune.loguniform(1e-6, 1e-3),
         "scheduler": tune.choice(['step', 'cosine']),  # tune.grid_search(['cosine', 'step']),
         "max_word_dropout_ratio": tune.quniform(0.1, 0.5, 0.05),  # tune.choice([0.1, 0.2, 0.3]),
-        "word_dropout_prob": tune.quniform([0.0, 1.0, 0.1]),
+        "word_dropout_prob": tune.quniform(0.0, 1.0, 0.1),
         "label_smoothing": tune.choice([0.1, 0.0]),  # tune.grid_search([0.1, 0.0]),
         "use_multi_class": False,  # tune.grid_search([True, False]),
         "freeze_bert": tune.choice([False, True]),
