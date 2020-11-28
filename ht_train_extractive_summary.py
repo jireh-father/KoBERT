@@ -328,8 +328,8 @@ def train(config, args):
 
     train_dataset = SentenceDataset(train_samples, vocab, media_map, word_dropout_prob=config['word_dropout_prob'],
                                     max_word_dropout_ratio=config['max_word_dropout_ratio'],
-                                    max_token_cnt=args.max_token_cnt)
-    val_dataset = SentenceDataset(val_samples, vocab, media_map, max_token_cnt=args.max_token_cnt)
+                                    max_token_cnt=config['max_token_cnt'])
+    val_dataset = SentenceDataset(val_samples, vocab, media_map, max_token_cnt=config['max_token_cnt'])
 
     weights = 1. / torch.tensor(class_cnt, dtype=torch.float)
     print('weights', weights)
@@ -537,7 +537,7 @@ def train(config, args):
             break
 
 
-def test_accuracy(model, use_multi_class, device):
+def test_accuracy(model, use_multi_class, max_token_cnt, device):
     samples_dict = {}
     medias = set()
     with jsonlines.open(args.train_file) as f:
@@ -591,7 +591,7 @@ def test_accuracy(model, use_multi_class, device):
     print("val samples", len(val_samples))
 
     _, vocab = get_pytorch_kobert_model()
-    val_dataset = SentenceDataset(val_samples, vocab, media_map, max_token_cnt=args.max_token_cnt)
+    val_dataset = SentenceDataset(val_samples, vocab, media_map, max_token_cnt=max_token_cnt)
 
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.val_batch_size * 2,
                                              num_workers=args.num_workers,

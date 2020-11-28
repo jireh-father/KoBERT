@@ -28,6 +28,7 @@ def main(args=None):
         "use_pos": tune.choice([True, False]),  # True,  # tune.grid_search([True, False]),
         "use_media": tune.choice([True, False]),  # tune.grid_search([True, False]),
         "simple_model": tune.choice([False, True]),  # tune.grid_search([True, False])
+        "max_token_cnt": tune.qrandint(200, 600, 100)
     }
 
     ray.init(num_cpus=args.cpus_per_trial * args.num_avail_gpus, num_gpus=args.num_avail_gpus)
@@ -76,7 +77,8 @@ def main(args=None):
     model_state, optimizer_state = torch.load(os.path.join(best_checkpoint_dir, "checkpoint"))
     best_trained_model.load_state_dict(model_state)
 
-    test_acc = trainer_util.test_accuracy(best_trained_model, best_trial.config["use_multi_class"], device)
+    test_acc = trainer_util.test_accuracy(best_trained_model, best_trial.config["use_multi_class"],
+                                          best_trial.config["max_token_cnt"], device)
     print("Best trial test set f1: {}".format(test_acc))
 
 
@@ -96,7 +98,7 @@ if __name__ == '__main__':
     parser.add_argument('--val_batch_size', type=int, default=64)
     parser.add_argument('-w', '--num_workers', type=int, default=8)
 
-    parser.add_argument('--max_token_cnt', type=int, default=300)
+    # parser.add_argument('--max_token_cnt', type=int, default=300)
 
     parser.add_argument('--lr_decay_gamma', type=float, default=0.9)
     # parser.add_argument('-d', '--weight_decay', type=float, default=1e-5)
