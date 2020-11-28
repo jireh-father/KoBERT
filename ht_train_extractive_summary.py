@@ -208,7 +208,7 @@ def save_model(model, model_path):
 
 class ExtractiveModel(nn.Module):
     def __init__(self, bert_model, pos_cnt, media_cnt, embed_dim, use_bert_sum_words=True, use_pos=True,
-                 use_media=True, dropout=0.1, num_classes=4, dim_feedforward=1024):
+                 use_media=True, dropout=0.1, num_classes=4, dim_feedforward=1024, simple_model=True):
         super(ExtractiveModel, self).__init__()
         self.bert = bert_model
         self.pos_embed = nn.Embedding(pos_cnt, embed_dim)
@@ -217,16 +217,20 @@ class ExtractiveModel(nn.Module):
         self.use_media = use_media
         self.use_pos = use_pos
 
-        self.linear1 = nn.Linear(embed_dim, dim_feedforward)
-        self.dropout = nn.Dropout(dropout)
-        self.linear2 = nn.Linear(dim_feedforward, num_classes)
+        self.simple_model = simple_model
+        if simple_model:
+            self.linear = nn.Linear(embed_dim, num_classes)
+        else:
+            self.linear1 = nn.Linear(embed_dim, dim_feedforward)
+            self.dropout = nn.Dropout(dropout)
+            self.linear2 = nn.Linear(dim_feedforward, num_classes)
 
-        self.norm1 = nn.LayerNorm(embed_dim)
-        # self.norm2 = nn.LayerNorm(embed_dim)
-        self.dropout1 = nn.Dropout(dropout)
-        # self.dropout2 = nn.Dropout(dropout)
+            self.norm1 = nn.LayerNorm(embed_dim)
+            # self.norm2 = nn.LayerNorm(embed_dim)
+            self.dropout1 = nn.Dropout(dropout)
+            # self.dropout2 = nn.Dropout(dropout)
 
-        self.activation = nn.ReLU()
+            self.activation = nn.ReLU()
 
     def forward(self, input_ids, pos_ids, media_ids):
         # input_ids = torch.LongTensor([[31, 51, 99], [15, 5, 0]])
@@ -247,12 +251,15 @@ class ExtractiveModel(nn.Module):
         if self.use_media:
             sentence_embed += self.media_embed(media_ids)
 
-        sentence_embed = self.dropout1(sentence_embed)
-        sentence_embed = self.norm1(sentence_embed)
-        # if hasattr(self, "activation"):
-        logits = self.linear2(self.dropout(self.activation(self.linear1(sentence_embed))))
-        # else:  # for backward compatibility
-        #     src2 = self.linear2(self.dropout(F.relu(self.linear1(src))))
+        if self.self.simple_model:
+            logits = self.linear(sentence_embed)
+        else:
+            sentence_embed = self.dropout1(sentence_embed)
+            sentence_embed = self.norm1(sentence_embed)
+            # if hasattr(self, "activation"):
+            logits = self.linear2(self.dropout(self.activation(self.linear1(sentence_embed))))
+            # else:  # for backward compatibility
+            #     src2 = self.linear2(self.dropout(F.relu(self.linear1(src))))
         return logits
 
 
@@ -347,7 +354,8 @@ def train(config, args):
 
     model = ExtractiveModel(bert_model, 100, 11, 768, use_bert_sum_words=config['use_bert_sum_words'],
                             use_pos=config['use_pos'],
-                            use_media=config['use_media'])
+                            use_media=config['use_media'],
+                            simple_model=config['simple_model'])
 
     if args.checkpoint_path is not None and os.path.isfile(args.checkpoint_path):
         state_dict = torch.load(args.checkpoint_path)
@@ -649,7 +657,7 @@ def main(args=None):
         "use_bert_sum_words": tune.grid_search([True, False]),
         "use_pos": tune.grid_search([True, False]),
         "use_media": tune.grid_search([True, False]),
-
+        "simple_model": tune.grid_search([True, False])
     }
     scheduler = ASHAScheduler(
         metric="f1",
@@ -680,7 +688,8 @@ def main(args=None):
     best_trained_model = ExtractiveModel(bert_model, 100, 11, 768,
                                          use_bert_sum_words=best_trial.config["use_bert_sum_words"],
                                          use_pos=best_trial.config["use_pos"],
-                                         use_media=best_trial.config['use_media'])
+                                         use_media=best_trial.config['use_media'],
+                                         simple_model=best_trial.config['simple_model'])
 
     if torch.cuda.is_available():
         device = "cuda:0"
