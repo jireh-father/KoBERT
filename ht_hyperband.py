@@ -28,7 +28,7 @@ def main(args=None):
         "use_pos": tune.choice([True, False]),  # True,  # tune.grid_search([True, False]),
         "use_media": tune.choice([True, False]),  # tune.grid_search([True, False]),
         "simple_model": tune.choice([False, True]),  # tune.grid_search([True, False])
-        "max_token_cnt": tune.qrandint(200, 600, 100)
+        "max_token_cnt": tune.choice([200, 300, 400, 500, 600]),
     }
 
     ray.init(num_cpus=args.cpus_per_trial * args.num_avail_gpus, num_gpus=args.num_avail_gpus)
