@@ -78,7 +78,7 @@ def submit(args):
     model = ExtractiveModel(bert_model, 100, 11, 768,
                             use_bert_sum_words=args.use_bert_sum_words,
                             use_pos=args.use_pos,
-                            use_media=args.use_media, num_classes=4, simple_model=args.simple_model,
+                            use_media=args.use_media, num_classes=2, simple_model=args.simple_model,
                             dim_feedforward=args.dim_feedforward,
                             dropout=args.dropout)
 
