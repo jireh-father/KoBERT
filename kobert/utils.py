@@ -36,7 +36,7 @@ tokenizer = {
 def download(url, filename, chksum, cachedir='~/kobert/'):
     f_cachedir = os.path.expanduser(cachedir)
     os.makedirs(f_cachedir, exist_ok=True)
-    file_path = os.path.join(f_cachedir, filename)
+    file_path = os.path.join(f_cachedir,  )
     if os.path.isfile(file_path):
         if hashlib.md5(open(file_path,
                             'rb').read()).hexdigest()[:10] == chksum:

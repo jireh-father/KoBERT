@@ -18,7 +18,7 @@ import datetime
 import time
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
-from sklearn.metrics import f1_score, accuracy_score
+from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
 import matplotlib.pyplot as plt
 import itertools
 from functools import partial
@@ -371,7 +371,7 @@ def train(config, args):
     if len(train_samples) % args.train_batch_size > 0:
         steps_per_epoch += 1
     optimizer, scheduler, use_lr_schedule_steps = init_optimizer(config['optimizer'], model,
-                                                                 config['lr'], args.weight_decay,
+                                                                 config['lr'], config['weight_decay'],
                                                                  args.lr_restart_step,
                                                                  args.lr_decay_gamma,
                                                                  config['scheduler'],
@@ -506,11 +506,14 @@ def train(config, args):
             current_datetime = datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')
 
             epoch_acc = accuracy_score(epoch_labels, epoch_preds)
-            epoch_f1 = f1_score(epoch_labels, epoch_preds, average='macro')
+            epoch_f1 = f1_score(epoch_labels, epoch_preds, pos_label=0)
+            epoch_precision = precision_score(epoch_labels, epoch_preds, pos_label=0)
+            epoch_recall = recall_score(epoch_labels, epoch_preds, pos_label=0)
             epoch_elapsed = time.time() - epoch_start_time
             print(
-                "[result_val-epoch:%d,%s] epoch_elapsed: %s, loss: %f, acc: %f, f1: %f" % (
-                    epoch, current_datetime, epoch_elapsed, epoch_loss, epoch_acc, epoch_f1))
+                "[result_val-epoch:%d,%s] epoch_elapsed: %s, loss: %f, acc: %f, f1: %f, pre: %f, recall: %f" % (
+                    epoch, current_datetime, epoch_elapsed, epoch_loss, epoch_acc, epoch_f1, epoch_precision,
+                    epoch_recall))
 
             cls_report = classification_report(epoch_labels, epoch_preds)  # , target_names=classes)
             print(cls_report)
@@ -534,7 +537,8 @@ def train(config, args):
                 path = os.path.join(checkpoint_dir, "checkpoint")
                 torch.save((model.state_dict(), optimizer.state_dict()), path)
 
-            tune.report(loss=epoch_loss, f1=epoch_f1)
+            tune.report(loss=epoch_loss, f1=epoch_f1, acc=epoch_acc, pos_acc=epoch_cm[0], neg_acc=epoch_cm[1],
+                        precision=epoch_precision, recall=epoch_recall)
         if not args.train and args.val:
             print("The end of evaluation.")
             break
@@ -753,7 +757,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_token_cnt', type=int, default=300)
 
     parser.add_argument('--lr_decay_gamma', type=float, default=0.9)
-    parser.add_argument('-d', '--weight_decay', type=float, default=1e-5)
+    # parser.add_argument('-d', '--weight_decay', type=float, default=1e-5)
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('-t', '--train', default=False, action="store_true")
     parser.add_argument('-v', '--val', default=False, action="store_true")
