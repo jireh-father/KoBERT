@@ -5,20 +5,18 @@ import jsonlines
 from torch.utils import data
 from gluonnlp.data import SentencepieceTokenizer
 from kobert.utils import get_tokenizer
-from torch.optim import lr_scheduler
 import datetime
 import time
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
-import matplotlib.pyplot as plt
 import itertools
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import ht_train_extractive_summary as trainer
+
+from torch.nn.utils.rnn import pad_sequence
+import os
+from model import ExtractiveModel
 
 
 class SentenceDataset(data.Dataset):
@@ -64,9 +62,11 @@ class SentenceDataset(data.Dataset):
             token_ids = self.vocab.to_indices(tokens)
             if len(token_ids) > self.max_token_cnt:
                 token_ids = token_ids[:self.max_token_cnt]
-            token_ids_batch.append(token_ids)
+            token_ids_batch.append(torch.tensor(token_ids, dtype=torch.long))
 
-        return torch.tensor(token_ids_batch, dtype=torch.long), torch.tensor(pos_idx_batch, dtype=torch.long), \
+        token_ids_batch = pad_sequence(token_ids_batch, batch_first=True, padding_value=0)
+
+        return token_ids_batch, torch.tensor(pos_idx_batch, dtype=torch.long), \
                torch.tensor(media_batch, dtype=torch.long), np.array(sentences)
 
     def __len__(self):
@@ -81,14 +81,12 @@ def submit(args):
                                               num_workers=args.num_workers,
                                               shuffle=False)
 
-    model = trainer.ExtractiveModel(bert_model, 100, 11, 768, use_bert_sum_words=args.use_bert_sum_words,
-                                    use_pos=args.use_pos,
-                                    use_media=args.use_media, num_classes=2, simple_model=args.simple_model)
-
-    model = trainer.ExtractiveModel(bert_model, 100, 11, 768, use_bert_sum_words=config['use_bert_sum_words'],
-                                    use_pos=config['use_pos'],
-                                    use_media=config['use_media'],
-                                    simple_model=config['simple_model'])
+    model = ExtractiveModel(bert_model, 100, 11, 768,
+                            use_bert_sum_words=args.use_bert_sum_words,
+                            use_pos=args.use_pos,
+                            use_media=args.use_media, num_classes=2, simple_model=args.simple_model,
+                            dim_feedforward=args.dim_feedforward,
+                            dropout=args.dropout)
 
     if args.checkpoint_path is not None and os.path.isfile(args.checkpoint_path):
         state_dict = torch.load(args.checkpoint_path)
@@ -98,20 +96,20 @@ def submit(args):
     epoch_start_time = time.time()
     epoch_preds = []
     epoch_labels = []
+    device = 'cuda'
+    model.to(device)
 
-    for step, (token_ids_batch, labels, pos_idx_batch, media_batch) in enumerate(test_loader):
-        batch_start_time = time.time()
-        epoch_labels += list(labels.numpy())
+    for step, (token_ids_batch, pos_idx_batch, media_batch, sen_batch) in enumerate(test_loader):
+        print(token_ids_batch.shape, pos_idx_batch.shape, media_batch.shape, sen_batch.shape)
         token_ids_batch = token_ids_batch.to(device)
         pos_idx_batch = pos_idx_batch.to(device)
         media_batch = media_batch.to(device)
+        sys.exit()
 
-        # forward
-        # track history if only in train
         with torch.set_grad_enabled(False):
-            start = time.time()
             outputs = model(token_ids_batch, pos_idx_batch, media_batch)
             # print("batch speed", time.time() - start)
+            torch.argsort(outputs[:, 0], dim=0)
             _, preds = torch.max(outputs, 1)
             epoch_preds += list(preds.cpu().numpy())
 
@@ -156,6 +154,13 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--num_workers', type=int, default=8)
 
     parser.add_argument('--max_token_cnt', type=int, default=300)
+
+    parser.add_argument('--use_bert_sum_words', action='store_true', default=False)
+    parser.add_argument('--use_media', action='store_true', default=False)
+    parser.add_argument('--use_pos', action='store_true', default=False)
+    parser.add_argument('--simple_model', action='store_true', default=False)
+    parser.add_argument('--dim_feedforward', type=int, default=1024)
+    parser.add_argument('--dropout', type=float, default=0.1)
 
     parser.add_argument('--lr_decay_gamma', type=float, default=0.9)
     # parser.add_argument('-d', '--weight_decay', type=float, default=1e-5)

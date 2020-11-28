@@ -7,7 +7,6 @@ from gluonnlp.data import SentencepieceTokenizer
 from kobert.utils import get_tokenizer
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim import lr_scheduler
-from torch.utils.tensorboard import SummaryWriter
 import datetime
 import time
 from sklearn.metrics import confusion_matrix
@@ -25,6 +24,7 @@ import torch.optim as optim
 from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
+from model import ExtractiveModel
 
 default_config = {
     "optimizer": tune.choice(['adam', 'sgd']),  # tune.grid_search(['adam', 'sgd']),
@@ -95,54 +95,8 @@ def reduce_loss(loss, reduction='mean'):
     return loss.mean() if reduction == 'mean' else loss.sum() if reduction == 'sum' else loss
 
 
-def plot_to_image(figure):
-    """Converts the matplotlib plot specified by 'figure' to a PNG image and
-    returns it. The supplied figure is closed and inaccessible after this call."""
-    figure.canvas.draw()
-    return np.array(figure.canvas.renderer._renderer)
-
-
-def plot_confusion_matrix(cm, class_names):
-    """
-    Returns a matplotlib figure containing the plotted confusion matrix.
-
-    Args:
-      cm (array, shape = [n, n]): a confusion matrix of integer classes
-      class_names (array, shape = [n]): String names of the integer classes
-    """
-    figure = plt.figure(figsize=(8, 8))
-    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
-    plt.title("Confusion matrix")
-    plt.colorbar()
-    tick_marks = np.arange(len(class_names))
-    plt.xticks(tick_marks, class_names, rotation=45)
-    plt.yticks(tick_marks, class_names)
-
-    # Normalize the confusion matrix.
-    cm = np.around(cm.astype('float') / cm.sum(axis=1)[:, np.newaxis], decimals=2)
-
-    # Use white text if squares are dark; otherwise black.
-    threshold = cm.max() / 2.
-    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-        color = "white" if cm[i, j] > threshold else "black"
-        plt.text(j, i, cm[i, j], horizontalalignment="center", color=color)
-
-    plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-    return figure
-
-
 def linear_combination(x, y, epsilon):
     return epsilon * x + (1 - epsilon) * y
-
-
-def log_confusion_matrix(writer, epoch, cm, class_names=None):
-    # Log the confusion matrix as an image summary.
-    figure = plot_confusion_matrix(cm, class_names=class_names)
-    cm_image = plot_to_image(figure)
-
-    writer.add_image('confusion_matrix', cm_image, epoch, dataformats='HWC')
 
 
 class LabelSmoothingCrossEntropy(nn.Module):
@@ -216,63 +170,6 @@ def save_model(model, model_path):
         model = model.module
     print("save model", model_path)
     torch.save(model.state_dict(), model_path)
-
-
-class ExtractiveModel(nn.Module):
-    def __init__(self, bert_model, pos_cnt, media_cnt, embed_dim, use_bert_sum_words=True, use_pos=True,
-                 use_media=True, dropout=0.1, num_classes=4, dim_feedforward=1024, simple_model=True):
-        super(ExtractiveModel, self).__init__()
-        self.bert = bert_model
-        self.pos_embed = nn.Embedding(pos_cnt, embed_dim)
-        self.media_embed = nn.Embedding(media_cnt, embed_dim)
-        self.use_bert_sum_words = use_bert_sum_words
-        self.use_media = use_media
-        self.use_pos = use_pos
-
-        self.simple_model = simple_model
-        if simple_model:
-            self.linear = nn.Linear(embed_dim, num_classes)
-        else:
-            self.linear1 = nn.Linear(embed_dim, dim_feedforward)
-            self.dropout = nn.Dropout(dropout)
-            self.linear2 = nn.Linear(dim_feedforward, num_classes)
-
-            self.norm1 = nn.LayerNorm(embed_dim)
-            # self.norm2 = nn.LayerNorm(embed_dim)
-            self.dropout1 = nn.Dropout(dropout)
-            # self.dropout2 = nn.Dropout(dropout)
-
-            self.activation = nn.ReLU()
-
-    def forward(self, input_ids, pos_ids, media_ids):
-        # input_ids = torch.LongTensor([[31, 51, 99], [15, 5, 0]])
-        # input_mask = torch.LongTensor([[1, 1, 1], [1, 1, 0]])
-        # token_type_ids = torch.LongTensor([[0, 0, 1], [0, 1, 0]])
-        # model, vocab = get_pytorch_kobert_model()
-        #
-        input_mask = (input_ids != 0).type(torch.long)
-        sequence_output, pooled_output = self.bert(input_ids, input_mask)
-        if self.use_bert_sum_words:
-            sentence_embed = torch.sum(sequence_output, dim=1)
-        else:
-            sentence_embed = pooled_output
-
-        if self.use_pos:
-            sentence_embed += self.pos_embed(pos_ids)
-
-        if self.use_media:
-            sentence_embed += self.media_embed(media_ids)
-
-        if self.simple_model:
-            logits = self.linear(sentence_embed)
-        else:
-            sentence_embed = self.dropout1(sentence_embed)
-            sentence_embed = self.norm1(sentence_embed)
-            # if hasattr(self, "activation"):
-            logits = self.linear2(self.dropout(self.activation(self.linear1(sentence_embed))))
-            # else:  # for backward compatibility
-            #     src2 = self.linear2(self.dropout(F.relu(self.linear1(src))))
-        return logits
 
 
 def train(config, args):
@@ -402,8 +299,6 @@ def train(config, args):
     criterion = criterion.to(device)
 
     os.makedirs(args.work_dir, exist_ok=True)
-    train_writer = SummaryWriter(os.path.join(args.work_dir, 'train'))
-    val_writer = SummaryWriter(os.path.join(args.work_dir, 'val'))
 
     print('train_loader', len(train_loader))
     for epoch in range(args.num_epochs):
@@ -449,12 +344,6 @@ def train(config, args):
                     f1 = f1_score(labels.cpu().numpy(), preds.cpu().numpy(), average='macro')
                     acc = accuracy_score(labels.cpu().numpy(), preds.cpu().numpy())
 
-                    train_writer.add_scalar('Loss', loss.item(), step + len(train_loader) * epoch)
-                    train_writer.add_scalar('Acc', acc, step + len(train_loader) * epoch)
-                    train_writer.add_scalar('F1', f1, step + len(train_loader) * epoch)
-                    train_writer.add_scalar('LR', np.array(scheduler.get_lr()).mean(),
-                                            step + len(train_loader) * epoch)
-
                     print("[train-epoch:%02d/%02d,step:%d/%d,%s] batch_elapsed: %f" %
                           (epoch, args.num_epochs, step, len(train_loader), current_datetime, batch_elapsed_time))
                     print("loss: %f, acc: %f, f1: %f, lr: %f" % (
@@ -473,10 +362,6 @@ def train(config, args):
                 "[result:train-epoch:%02d/%02d,%s] epoch_elapsed: %s, loss: %f, acc: %f, f1: %f, lr: %f" % (
                     epoch, args.num_epochs, current_datetime, epoch_elapsed_time, epoch_loss, epoch_acc, epoch_f1,
                     scheduler.get_lr()[0]))
-            train_writer.add_scalar('Loss/epoch', epoch_loss, epoch)
-            train_writer.add_scalar('Acc/epoch', epoch_acc, epoch)
-            train_writer.add_scalar('F1/epoch', epoch_f1, epoch)
-            save_model(model, os.path.join(args.work_dir, "saved_models", "epoch_%d.pth" % epoch))
 
         if args.val:
             model.eval()  # Set model to evaluate mode
@@ -526,6 +411,20 @@ def train(config, args):
             epoch_precision = precision_score(epoch_labels, epoch_preds, pos_label=0)
             epoch_recall = recall_score(epoch_labels, epoch_preds, pos_label=0)
             epoch_elapsed = time.time() - epoch_start_time
+
+            with tune.checkpoint_dir(epoch) as checkpoint_dir:
+                path = os.path.join(checkpoint_dir, "checkpoint")
+                torch.save((model.state_dict(), optimizer.state_dict()), path)
+
+            epoch_cm = confusion_matrix(epoch_labels, epoch_preds)
+            np_epoch_labels = np.unique(np.array(epoch_labels))
+            np_epoch_labels.sort()
+            print("confusion matrix")
+            print(epoch_cm)
+
+            tune.report(loss=epoch_loss, f1=epoch_f1, acc=epoch_acc, pos_acc=epoch_cm[0], neg_acc=epoch_cm[1],
+                        precision=epoch_precision, recall=epoch_recall)
+
             print(
                 "[result_val-epoch:%d,%s] epoch_elapsed: %s, loss: %f, acc: %f, f1: %f, pre: %f, recall: %f" % (
                     epoch, current_datetime, epoch_elapsed, epoch_loss, epoch_acc, epoch_f1, epoch_precision,
@@ -533,28 +432,13 @@ def train(config, args):
 
             cls_report = classification_report(epoch_labels, epoch_preds)  # , target_names=classes)
             print(cls_report)
-            epoch_cm = confusion_matrix(epoch_labels, epoch_preds)
-            np_epoch_labels = np.unique(np.array(epoch_labels))
-            np_epoch_labels.sort()
-            log_confusion_matrix(val_writer, epoch, epoch_cm, np_epoch_labels)
-            print("confusion matrix")
-            print(epoch_cm)
+
             # np.save(os.path.join(log_dir, "confusion_matrix_%s_epoch_%d.npy" % (val_name, epoch)), epoch_cm)
             epoch_cm = epoch_cm.astype('float') / epoch_cm.sum(axis=1)[:, np.newaxis]
             epoch_cm = epoch_cm.diagonal()
             print("each accuracies")
             print(epoch_cm)
 
-            val_writer.add_scalar('Loss/epoch', epoch_loss, epoch)
-            val_writer.add_scalar('Acc/epoch', epoch_acc, epoch)
-            val_writer.add_scalar('F1/epoch', epoch_f1, epoch)
-
-            with tune.checkpoint_dir(epoch) as checkpoint_dir:
-                path = os.path.join(checkpoint_dir, "checkpoint")
-                torch.save((model.state_dict(), optimizer.state_dict()), path)
-
-            tune.report(loss=epoch_loss, f1=epoch_f1, acc=epoch_acc, pos_acc=epoch_cm[0], neg_acc=epoch_cm[1],
-                        precision=epoch_precision, recall=epoch_recall)
         if not args.train and args.val:
             print("The end of evaluation.")
             break

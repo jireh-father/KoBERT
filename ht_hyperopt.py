@@ -5,15 +5,13 @@ from functools import partial
 import numpy as np
 import os
 import torch
-import torch.nn as nn
 from ray import tune
 from ray.tune import CLIReporter
-from ray.tune.schedulers import HyperBandScheduler
 import ht_train_extractive_summary as trainer_util
-import ray
 from ray.tune.suggest import ConcurrencyLimiter
 from ray.tune.schedulers import AsyncHyperBandScheduler
 from ray.tune.suggest.hyperopt import HyperOptSearch
+from model import ExtractiveModel
 
 
 def main(args=None):
@@ -106,14 +104,14 @@ def main(args=None):
     bert_model, vocab = get_pytorch_kobert_model()
 
     num_classes = 4 if best_trial.config["use_multi_class"] else 2
-    best_trained_model = trainer_util.ExtractiveModel(bert_model, 100, 11, 768,
-                                                      use_bert_sum_words=best_trial.config["use_bert_sum_words"],
-                                                      use_pos=best_trial.config["use_pos"],
-                                                      use_media=best_trial.config['use_media'],
-                                                      simple_model=best_trial.config['simple_model'],
-                                                      num_classes=num_classes,
-                                                      dim_feedforward=best_trial.config['dim_feedforward'],
-                                                      dropout=best_trial.config['dropout'])
+    best_trained_model = ExtractiveModel(bert_model, 100, 11, 768,
+                                         use_bert_sum_words=best_trial.config["use_bert_sum_words"],
+                                         use_pos=best_trial.config["use_pos"],
+                                         use_media=best_trial.config['use_media'],
+                                         simple_model=best_trial.config['simple_model'],
+                                         num_classes=num_classes,
+                                         dim_feedforward=best_trial.config['dim_feedforward'],
+                                         dropout=best_trial.config['dropout'])
 
     if torch.cuda.is_available():
         device = "cuda:0"
