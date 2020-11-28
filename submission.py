@@ -93,6 +93,8 @@ def submit(args):
     ids = []
     summaries = []
     for step, (token_ids_batch, pos_idx_batch, media_batch) in enumerate(test_loader):
+        if step % 50 == 0:
+            print(step, len(test_loader))
         token_ids_batch = token_ids_batch[0].to(device)
         pos_idx_batch = pos_idx_batch[0].to(device)
         media_batch = media_batch[0].to(device)
