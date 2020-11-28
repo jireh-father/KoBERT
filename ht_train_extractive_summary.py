@@ -645,19 +645,33 @@ def test_accuracy(model, use_multi_class, device):
 
 
 def main(args=None):
+    # config = {
+    #     "optimizer": 'adam',  # tune.grid_search(['adam', 'sgd']),
+    #     "lr": 0.001,  # tune.loguniform(1e-4, 1e-1),
+    #     "scheduler": 'step',  # tune.grid_search(['cosine', 'step']),
+    #     "max_word_dropout_ratio": 0.0,
+    #     "word_dropout_prob": 0.0,
+    #     "label_smoothing": tune.grid_search([0.1, 0.0]),
+    #     "use_multi_class": False,  # tune.grid_search([True, False]),
+    #     "freeze_bert": tune.grid_search([True, False]),
+    #     "use_bert_sum_words": tune.grid_search([True, False]),
+    #     "use_pos": tune.grid_search([True, False]),
+    #     "use_media": tune.grid_search([True, False]),
+    #     "simple_model": tune.grid_search([True, False])
+    # }
     config = {
-        "optimizer": 'adam',  # tune.grid_search(['adam', 'sgd']),
-        "lr": 0.001,  # tune.loguniform(1e-4, 1e-1),
-        "scheduler": 'step',  # tune.grid_search(['cosine', 'step']),
-        "max_word_dropout_ratio": 0.0,
-        "word_dropout_prob": 0.0,
-        "label_smoothing": tune.grid_search([0.1, 0.0]),
+        "optimizer": tune.grid_search(['adam', 'sgd']),  # tune.grid_search(['adam', 'sgd']),
+        "lr": tune.grid_search([0.1, 0.01, 0.001]),  # tune.loguniform(1e-4, 1e-1),
+        "scheduler": tune.grid_search(['step', 'cosine']),  # tune.grid_search(['cosine', 'step']),
+        "max_word_dropout_ratio": tune.grid_search([0.1, 0.2, 0.3]),
+        "word_dropout_prob": tune.grid_search([0.5, 0.0, 0.25, 0.75, 1.0]),
+        "label_smoothing": 0.0,  # tune.grid_search([0.1, 0.0]),
         "use_multi_class": False,  # tune.grid_search([True, False]),
-        "freeze_bert": tune.grid_search([True, False]),
-        "use_bert_sum_words": tune.grid_search([True, False]),
-        "use_pos": tune.grid_search([True, False]),
-        "use_media": tune.grid_search([True, False]),
-        "simple_model": tune.grid_search([True, False])
+        "freeze_bert": False,  # tune.grid_search([True, False]),
+        "use_bert_sum_words": False,  # tune.grid_search([True, False]),
+        "use_pos": True,  # tune.grid_search([True, False]),
+        "use_media": False,  # tune.grid_search([True, False]),
+        "simple_model": True,  # tune.grid_search([True, False])
     }
     scheduler = ASHAScheduler(
         metric="f1",
