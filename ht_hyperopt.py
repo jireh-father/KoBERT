@@ -32,6 +32,7 @@ def main(args=None):
             "max_token_cnt": 3,
             "dim_feedforward": 2,
             "dropout": 1,
+            "weighted_loss": 2.0
         },
         {
             "optimizer": 0,  # tune.grid_search(['adam', 'sgd']),
@@ -49,6 +50,7 @@ def main(args=None):
             "max_token_cnt": 3,
             "dim_feedforward": 2,
             "dropout": 1,
+            "weighted_loss": 1.0
         },
         {
             "optimizer": 0,  # tune.grid_search(['adam', 'sgd']),
@@ -66,6 +68,7 @@ def main(args=None):
             "max_token_cnt": 1,
             "dim_feedforward": 2,
             "dropout": 1,
+            "weighted_loss":1.0
         }
     ]
 

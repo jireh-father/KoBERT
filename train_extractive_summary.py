@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 import itertools
 from model import ExtractiveModel
 
+
 def freeze_params(model):
     """Set requires_grad=False for each of model.parameters()"""
     for par in model.parameters():
@@ -195,7 +196,6 @@ def save_model(model, model_path):
     torch.save(model.state_dict(), model_path)
 
 
-
 def train(args):
     # 문장 최대 갯수 100개
 
@@ -312,7 +312,9 @@ def train(args):
                                                                  num_epochs=args.num_epochs,
                                                                  steps_per_epoch=steps_per_epoch)
 
-    if args.label_smoothing > 0:
+    if args.weighted_loss > 0:
+        criterion = torch.nn.CrossEntropyLoss(weight=[args.weighted_loss, 1.])
+    elif args.label_smoothing > 0:
         criterion = LabelSmoothingCrossEntropy(epsilon=args.label_smoothing)
     else:
         criterion = torch.nn.CrossEntropyLoss()

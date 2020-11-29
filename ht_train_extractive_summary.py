@@ -43,6 +43,7 @@ default_config = {
     "max_token_cnt": tune.choice([200, 300, 400, 500]),
     "dim_feedforward": tune.choice([512, 768, 1024]),
     "dropout": tune.choice([0.0, 0.1, 0.2, 0.3, 0.4]),
+    "weighted_loss": tune.quniform(1.0, 10.0, 1.0)
 }
 
 
@@ -292,7 +293,9 @@ def train(config, args):
                                                                  num_epochs=args.num_epochs,
                                                                  steps_per_epoch=steps_per_epoch)
 
-    if config['label_smoothing'] > 0:
+    if config['weighted_loss'] > 0:
+        criterion = torch.nn.CrossEntropyLoss(weight=[config['weighted_loss'], 1.])
+    elif config['label_smoothing'] > 0:
         criterion = LabelSmoothingCrossEntropy(epsilon=config['label_smoothing'])
     else:
         criterion = torch.nn.CrossEntropyLoss()
