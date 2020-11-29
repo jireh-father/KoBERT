@@ -124,7 +124,7 @@ def main(args=None):
     best_trained_model.load_state_dict(model_state)
 
     test_acc = trainer_util.test_accuracy(best_trained_model, best_trial.config["use_multi_class"],
-                                          best_trial.config["max_token_cnt"], device)
+                                          best_trial.config["max_token_cnt"], device, args)
     print("Best trial test set f1: {}".format(test_acc))
 
 

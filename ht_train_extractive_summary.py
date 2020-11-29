@@ -444,7 +444,7 @@ def train(config, args):
             break
 
 
-def test_accuracy(model, use_multi_class, max_token_cnt, device):
+def test_accuracy(model, use_multi_class, max_token_cnt, device, args):
     samples_dict = {}
     medias = set()
     with jsonlines.open(args.train_file) as f:
