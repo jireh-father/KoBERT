@@ -294,7 +294,7 @@ def train(config, args):
                                                                  steps_per_epoch=steps_per_epoch)
 
     if config['weighted_loss'] > 0:
-        weights = [args.weighted_loss, 1.]
+        weights = [config['weighted_loss'], 1.]
         class_weights = torch.FloatTensor(weights).to(device)
         criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
     elif config['label_smoothing'] > 0:
